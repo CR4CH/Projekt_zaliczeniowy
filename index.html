@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="pl" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VelocityCompare - System Analizy Aut Sportowych</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: '#ef4444', // Red-500
+                        darkbg: '#111827', // Gray-900
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        body { transition: background-color 0.3s, color 0.3s; }
+        .card-hover:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+        .highlight-green { background-color: rgba(34, 197, 94, 0.2); color: #15803d; font-weight: bold; border-radius: 4px; }
+        .highlight-red { background-color: rgba(239, 68, 68, 0.2); color: #b91c1c; font-weight: bold; border-radius: 4px; }
+        /* Dark mode specific overrides for highlights */
+        html.dark .highlight-green { background-color: rgba(34, 197, 94, 0.3); color: #86efac; }
+        html.dark .highlight-red { background-color: rgba(239, 68, 68, 0.3); color: #fca5a5; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200 font-sans">
+
+    <nav class="fixed w-full z-50 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <i class="fa-solid fa-gauge-high text-3xl text-brand mr-2"></i>
+                    <span class="font-bold text-xl tracking-wide">Velocity<span class="text-brand">Compare</span></span>
+                </div>
+                <div class="hidden md:flex space-x-8">
+                    <a href="#garage" class="hover:text-brand transition">Garaż</a>
+                    <a href="#charts" class="hover:text-brand transition">Wykresy</a>
+                    <a href="#comparator" class="hover:text-brand transition">Porównywarka</a>
+                </div>
+                <button onclick="toggleTheme()" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+                    <i id="theme-icon" class="fa-solid fa-moon text-xl"></i>
+                </button>
+                <select id="currencySelect" onchange="changeCurrency()" class="mr-4 bg-gray-100 dark:bg-gray-700 border-none rounded px-3 py-1 text-sm font-bold text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-brand cursor-pointer">
+                    <option value="PLN">PLN</option>
+                    <option value="EUR">EUR</option>
+                    <option value="USD">USD</option>
+                </select>
+            </div>
+        </div>
+    </nav>
+
+    <header class="pt-32 pb-20 px-4 text-center bg-gradient-to-b from-gray-200 to-gray-100 dark:from-gray-800 dark:to-gray-900">
+        <h1 class="text-5xl md:text-6xl font-extrabold mb-6">
+            Wybierz mądrze, <span class="text-brand">jedź szybko</span>.
+        </h1>
+        <p class="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-8">
+            Profesjonalne narzędzie do analizy i porównywania osiągów najnowszych supersamochodów. Dane techniczne, wykresy i obiektywna ocena.
+        </p>
+        <a href="#garage" class="bg-brand text-white px-8 py-3 rounded-lg font-bold shadow-lg hover:bg-red-600 transition">
+            Przeglądaj Modele
+        </a>
+    </header>
+
+    <section id="garage" class="py-16 max-w-7xl mx-auto px-4">
+
+        <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow mb-8 flex flex-col md:flex-row gap-4 justify-between items-center transition-colors">
+            <div class="relative w-full md:w-1/3">
+                <i class="fa-solid fa-search absolute left-3 top-3 text-gray-400"></i>
+                <input type="text" id="searchInput" placeholder="Szukaj modelu..." 
+                    class="w-full pl-10 pr-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand"
+                    oninput="applyFilters()">
+            </div>
+            
+            <div class="flex gap-4 w-full md:w-auto">
+                <select id="categoryFilter" onchange="applyFilters()" class="p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-brand">
+                    <option value="all">Wszystkie kategorie</option>
+                    <option value="Supercar">Supercar</option>
+                    <option value="Coupe">Coupe</option>
+                    <option value="Sedan">Sedan</option>
+                    <option value="SUV">SUV</option>
+                </select>
+
+                <select id="sortOrder" onchange="applyFilters()" class="p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-brand">
+                    <option value="default">Domyślne</option>
+                    <option value="priceAsc">Cena: Rosnąco</option>
+                    <option value="priceDesc">Cena: Malejąco</option>
+                    <option value="powerDesc">Moc: Największa</option>
+                    <option value="accelAsc">0-100: Najszybsze</option>
+                </select>
+            </div>
+        </div>
+
+        <h2 class="text-3xl font-bold mb-10 border-l-4 border-brand pl-4">Dostępne Modele</h2>
+        <div id="cars-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            </div>
+    </section>
+
+    <section id="charts" class="py-16 bg-white dark:bg-gray-800 transition-colors">
+        <div class="max-w-7xl mx-auto px-4">
+            <h2 class="text-3xl font-bold mb-10 border-l-4 border-brand pl-4">Analiza Wizualna</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                <div class="bg-gray-50 dark:bg-gray-700 p-6 rounded-xl shadow-inner">
+                    <h3 class="text-xl font-bold mb-4 text-center">Przyspieszenie 0-100 km/h</h3>
+                    <canvas id="accelChart"></canvas>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-700 p-6 rounded-xl shadow-inner">
+                    <h3 class="text-xl font-bold mb-4 text-center">Moc Silnika (KM)</h3>
+                    <canvas id="powerChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="comparator" class="py-16 max-w-7xl mx-auto px-4">
+        <h2 class="text-3xl font-bold mb-6 border-l-4 border-brand pl-4">Porównywarka (Max 3 auta)</h2>
+        
+        <div id="comparator-placeholder" class="text-center p-10 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl">
+            <i class="fa-solid fa-scale-balanced text-4xl text-gray-400 mb-4"></i>
+            <p class="text-lg text-gray-500">Dodaj auta do porównania klikając przycisk na kartach pojazdów.</p>
+        </div>
+
+        <div id="comparator-container" class="hidden overflow-x-auto shadow-xl rounded-lg">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-200 uppercase text-sm leading-normal">
+                        <th class="py-3 px-6">Parametr</th>
+                        <th id="th-car-0" class="py-3 px-6 text-center">Auto 1</th>
+                        <th id="th-car-1" class="py-3 px-6 text-center">Auto 2</th>
+                        <th id="th-car-2" class="py-3 px-6 text-center hidden">Auto 3</th>
+                    </tr>
+                </thead>
+                <tbody id="comparator-body" class="text-gray-600 dark:text-gray-300 text-sm font-light">
+                    </tbody>
+            </table>
+        </div>
+
+        <div id="radar-container" class="mt-8 hidden bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg max-w-2xl mx-auto">
+            <h3 class="text-xl font-bold mb-4 text-center">Analiza Porównawcza (Radar)</h3>
+            <canvas id="comparisonRadarChart"></canvas>
+        </div>
+
+        <div class="mt-4 text-right">
+            <button onclick="clearComparison()" class="text-sm text-red-500 hover:text-red-700 underline">Wyczyść porównanie</button>
+        </div>
+    </section>
+
+    <footer class="bg-gray-900 text-white py-8 mt-12">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            <p>&copy; 2026 VelocityCompare. Projekt na zaliczenie "Projektowanie systemów informatycznych".</p>
+            <p class="text-gray-500 text-sm mt-2">Dane mają charakter poglądowy.</p>
+        </div>
+    </footer>
+
+    <script>
+        // --- DANE (Hardcoded) ---
+        const carsData = [
+            // --- SUPERCARS ---
+            { id: 1, model: "Lamborghini Huracán", category: "Supercar", power: 640, torque: 600, accel: 2.9, topSpeed: 325, price: 1300000, image: "https://images.unsplash.com/photo-1543854589-fdd815f176e0?q=80&w=1304&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", url: "https://www.lamborghini.com/en-en/models/huracan" },
+            { id: 2, model: "Ferrari F8 Tributo", category: "Supercar", power: 720, torque: 770, accel: 2.9, topSpeed: 340, price: 1450000, image: "https://images.unsplash.com/photo-1614200179396-2bdb77ebf81b?q=80&w=1332&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", url: "https://www.ferrari.com/en-EN/auto/f8-tributo" },
+            { id: 3, model: "Porsche 911 GT3", category: "Supercar", power: 510, torque: 450, accel: 3.4, topSpeed: 318, price: 980000, image: "https://images.unsplash.com/photo-1765728905491-37a417f00533?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", url: "https://www.porsche.com/international/models/911/911-gt3/911-gt3/" },
+            
+            // --- COUPE ---
+            { id: 4, model: "Porsche 911 Turbo S", category: "Coupe", power: 650, torque: 800, accel: 2.7, topSpeed: 330, price: 1150000, image: "https://images.unsplash.com/photo-1719773618885-9d10ce8d6ff1?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", url: "https://www.porsche.com/international/models/911/911-turbo-models/911-turbo-s/" },
+            { id: 5, model: "Audi R8 V10 Perf.", category: "Coupe", power: 620, torque: 580, accel: 3.1, topSpeed: 331, price: 1050000, image: "https://images.unsplash.com/photo-1662804002755-6dd03faa4d6b?q=80&w=1333&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", url: "https://www.audi.pl/pl/web/pl/modele/r8/r8-coupe-v10-performance-quattro.html" },
+            { id: 6, model: "BMW M8 Competition", category: "Coupe", power: 625, torque: 750, accel: 3.2, topSpeed: 305, price: 850000, image: "https://images.unsplash.com/photo-1721907857338-548d6ecdde3e?q=80&w=1032&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", url: "https://www.bmw.pl/pl/all-models/m-series/m8-coupe/2019/bmw-8-series-coupe-m-automobiles-overview.html" },
+
+            // --- SEDANY ---
+            { id: 7, model: "Mercedes-AMG GT 63 S", category: "Sedan", power: 639, torque: 900, accel: 3.2, topSpeed: 315, price: 900000, image: "https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", url: "https://www.mercedes-benz.pl/passengercars/models/coupe/amg-gt-4-door/overview.html" },
+            { id: 8, model: "BMW M5 Competition", category: "Sedan", power: 625, torque: 750, accel: 3.3, topSpeed: 305, price: 650000, image: "https://images.unsplash.com/photo-1603189661342-e45f1374f890?q=80&w=688&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", url: "https://www.bmw.pl/pl/all-models/m-series/m5-sedan/2020/bmw-5-series-sedan-m-automobiles-overview.html" },
+            { id: 9, model: "Audi RS 7 Sportback", category: "Sedan", power: 630, torque: 850, accel: 3.4, topSpeed: 280, price: 700000, image: "https://images.unsplash.com/photo-1606152421802-db97b9c7a11b?q=80&w=1174&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", url: "https://www.audi.pl/pl/web/pl/modele/a7/rs-7-sportback-performance.html" },
+
+            // --- SUV ---
+            { id: 10, model: "Lamborghini Urus", category: "SUV", power: 666, torque: 850, accel: 3.5, topSpeed: 305, price: 1250000, image: "https://images.unsplash.com/photo-1575650681837-c0ca3b1e7275?q=80&w=1031&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", url: "https://www.lamborghini.com/en-en/models/urus" },
+            { id: 11, model: "Cayenne Turbo E-Hybrid", category: "SUV", power: 739, torque: 950, accel: 3.7, topSpeed: 295, price: 880000, image: "https://images.unsplash.com/photo-1699325974549-fd06639650aa?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", url: "https://www.porsche.com/international/models/cayenne/cayenne-electric-models/cayenne-electric/" },
+            { id: 12, model: "Audi RS Q8", category: "SUV", power: 640, torque: 850, accel: 3.6, topSpeed: 305, price: 820000, image: "https://images.unsplash.com/photo-1655283281667-9497cc154137?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", url: "https://www.audi.pl/pl/web/pl/modele/q8/rs-q8.html" }
+        ];
+
+        // --- LOGIKA WALUTOWA (API NBP) ---
+        let currentCurrency = 'PLN';
+        let exchangeRates = {
+            PLN: 1.0,
+            EUR: 4.30, // Domyślna wartość (fallback)
+            USD: 3.95  // Domyślna wartość (fallback)
+        };
+
+        // Funkcja pobierająca kursy z NBP
+        async function fetchRates() {
+            try {
+                // Pobieramy tabelę A kursów średnich
+                const response = await fetch('https://api.nbp.pl/api/exchangerates/tables/A/?format=json');
+                const data = await response.json();
+                const rates = data[0].rates;
+
+                // Znajdujemy EUR i USD
+                const eur = rates.find(r => r.code === 'EUR').mid;
+                const usd = rates.find(r => r.code === 'USD').mid;
+
+                exchangeRates.EUR = eur;
+                exchangeRates.USD = usd;
+
+                console.log(`Pobrano kursy z NBP: EUR=${eur}, USD=${usd}`);
+            } catch (error) {
+                console.error("Błąd API NBP (używam kursów domyślnych):", error);
+            }
+        }
+
+        // Helper do formatowania ceny
+        function formatPrice(priceInPLN) {
+            const rate = exchangeRates[currentCurrency];
+            const converted = priceInPLN / rate;
+            
+            // Formatowanie: np. 1 000 000 EUR
+            return Math.round(converted).toLocaleString('pl-PL') + " " + currentCurrency;
+        }
+
+        // Obsługa zmiany selecta
+        function changeCurrency() {
+            currentCurrency = document.getElementById('currencySelect').value;
+            // Odświeżamy widoki
+            renderCars(document.getElementById('searchInput').value ? undefined : carsData); 
+            // Jeśli filtr jest aktywny, renderCars(undefined) sprawi, że użyje przefiltrowanych? 
+            // Prościej: wywołajmy applyFilters() bo ono wywoła renderCars
+            applyFilters();
+        }
+
+        // --- ZMIENNE DO WYKRESU RADAROWEGO ---
+        let radarChartInstance = null;
+        let compareList = []; // Przechowuje ID aut do porównania
+
+        // --- INICJALIZACJA ---
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchRates();
+            renderCars();
+            initCharts();
+            checkTheme();
+        });
+
+        // --- FILTROWANIE I SORTOWANIE (Nowa wersja renderCars) ---
+        function applyFilters() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const category = document.getElementById('categoryFilter').value;
+            const sort = document.getElementById('sortOrder').value;
+
+            // 1. Filtrowanie
+            let filtered = carsData.filter(car => {
+                const matchesSearch = car.model.toLowerCase().includes(query);
+                const matchesCategory = category === 'all' || car.category === category;
+                return matchesSearch && matchesCategory;
+            });
+
+            // 2. Sortowanie
+            if (sort === 'priceAsc') filtered.sort((a, b) => a.price - b.price);
+            if (sort === 'priceDesc') filtered.sort((a, b) => b.price - a.price);
+            if (sort === 'powerDesc') filtered.sort((a, b) => b.power - a.power);
+            if (sort === 'accelAsc') filtered.sort((a, b) => a.accel - b.accel);
+
+            renderCars(filtered);
+        }
+
+        // Zmodyfikowana funkcja renderCars przyjmująca dane
+        function renderCars(data = carsData) {
+            const container = document.getElementById('cars-grid');
+            container.innerHTML = '';
+
+            if(data.length === 0) {
+                container.innerHTML = '<p class="text-center col-span-3 text-gray-500">Nie znaleziono samochodów.</p>';
+                return;
+            }
+
+            data.forEach(car => {
+                const isInCompare = compareList.includes(car.id);
+                const btnText = isInCompare ? "W porównaniu ✓" : "Dodaj do porównania";
+                const btnColor = isInCompare ? "bg-green-600" : "bg-gray-900 dark:bg-brand";
+
+                const card = document.createElement('div');
+                card.className = "bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden card-hover transition duration-300 border border-gray-100 dark:border-gray-700 flex flex-col";
+                
+                // Sformatowana cena
+                const priceFormatted = formatPrice(car.price);
+
+                card.innerHTML = `
+                    <div class="relative group cursor-pointer" onclick="openModal(${car.id})">
+                        <img src="${car.image}" alt="${car.model}" class="w-full h-48 object-cover">
+                        <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                            <span class="text-white font-bold border border-white px-4 py-2 rounded">Szczegóły</span>
+                        </div>
+                    </div>
+                    <div class="p-6 flex-grow">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="text-xl font-bold text-gray-900 dark:text-white">${car.model}</h3>
+                            <span class="bg-gray-200 dark:bg-gray-700 text-xs px-2 py-1 rounded uppercase font-semibold h-fit">${car.category}</span>
+                        </div>
+                        <p class="text-brand font-bold text-lg mb-4">${priceFormatted}</p>
+                        
+                        <div class="grid grid-cols-2 gap-4 text-sm text-gray-600 dark:text-gray-400 mb-6">
+                            <div><i class="fa-solid fa-horse-head mr-1"></i> ${car.power} KM</div>
+                            <div><i class="fa-solid fa-bolt mr-1"></i> ${car.torque} Nm</div>
+                            <div><i class="fa-solid fa-stopwatch mr-1"></i> ${car.accel} s</div>
+                            <div><i class="fa-solid fa-tachograph-digital mr-1"></i> ${car.topSpeed} km/h</div>
+                        </div>
+                    </div>
+                    <div class="p-4 bg-gray-50 dark:bg-gray-700/50 mt-auto">
+                        <button onclick="toggleCompare(${car.id})" id="btn-${car.id}" class="w-full ${btnColor} text-white py-2 rounded font-medium hover:opacity-90 transition">
+                            ${btnText}
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // --- LOGIKA MODALA I LEASINGU ---
+        function openModal(id) {
+            const car = carsData.find(c => c.id === id);
+            if(!car) return;
+
+            const modal = document.getElementById('carModal');
+            const content = document.getElementById('modalContent');
+            
+            // Kalkulacja leasingu (domyślna)
+            const defaultOwn = Math.floor(car.price * 0.1); // 10%
+            
+            content.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2">
+                    
+                    <a href="${car.url}" target="_blank" rel="noopener noreferrer" class="relative group block h-64 md:h-full overflow-hidden cursor-pointer" title="Przejdź na stronę producenta">
+                        <img src="${car.image}" class="w-full h-full object-cover transition duration-500 group-hover:scale-110">
+                        
+                        <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition duration-300 flex flex-col items-center justify-center text-white">
+                            <i class="fa-solid fa-arrow-up-right-from-square text-3xl mb-2"></i>
+                            <span class="font-bold border border-white px-4 py-1 rounded">Strona Producenta</span>
+                        </div>
+                    </a>
+
+                    <div class="p-8">
+                        <div class="flex justify-between items-start">
+                            <h2 class="text-3xl font-bold mb-2 text-gray-900 dark:text-white">${car.model}</h2>
+                            <a href="${car.url}" target="_blank" class="text-gray-400 hover:text-brand text-xl"><i class="fa-solid fa-link"></i></a>
+                        </div>
+                        <p class="text-2xl text-brand font-bold mb-6">${formatPrice(car.price)}</p>
+                        
+                        <h3 class="font-bold border-b dark:border-gray-600 pb-2 mb-4 text-gray-700 dark:text-gray-200">Kalkulator Leasingowy</h3>
+                        
+                        <div class="space-y-4 text-gray-700 dark:text-gray-300">
+                            <div>
+                                <label class="block text-sm mb-1">Wpłata własna (<span id="ownLabel">10</span>%)</label>
+                                <input type="range" min="0" max="40" value="10" class="w-full accent-brand" 
+                                    oninput="calculateLease(${car.price}, this.value, document.getElementById('monthsInput').value)">
+                            </div>
+                            <div>
+                                <label class="block text-sm mb-1">Okres leasingu (<span id="monthsLabel">36</span> msc)</label>
+                                <input type="range" id="monthsInput" min="24" max="60" step="12" value="36" class="w-full accent-brand"
+                                    oninput="calculateLease(${car.price}, document.getElementById('ownLabel').innerText, this.value)">
+                            </div>
+                            <div class="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg text-center mt-4 border border-gray-200 dark:border-gray-600">
+                                <span class="block text-sm text-gray-500 dark:text-gray-400">Szacowana rata miesięczna:</span>
+                                <span id="leaseResult" class="text-2xl font-bold text-brand">--- PLN</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            modal.classList.remove('hidden');
+            calculateLease(car.price, 10, 36); // Inicjalizacja kalkulacji
+        }
+
+        function closeModal() {
+            document.getElementById('carModal').classList.add('hidden');
+        }
+
+        function calculateLease(pricePLN, ownPercent, months) {
+        // Aktualizacja etykiet
+        document.getElementById('ownLabel').innerText = ownPercent;
+        document.getElementById('monthsLabel').innerText = months;
+
+        // Przeliczenie ceny bazowej na wybraną walutę
+        const rate = exchangeRates[currentCurrency];
+        const priceInCurrency = pricePLN / rate;
+
+        // Matematyka leasingowa
+        const ownAmount = priceInCurrency * (ownPercent / 100);
+        const amountToFinance = priceInCurrency - ownAmount;
+        const totalInterest = 1.15; // 15% kosztu
+        const monthly = (amountToFinance * totalInterest) / months;
+
+        // Wyświetlenie wyniku z odpowiednią walutą
+        document.getElementById('leaseResult').innerText = Math.floor(monthly).toLocaleString() + " " + currentCurrency;
+        }
+
+        // --- LOGIKA WYKRESU RADAROWEGO (Aktualizacja) ---
+        // Tę funkcję dodaj wewnątrz funkcji `renderComparator()` na samym końcu
+        // Pamiętaj, aby wcześniej dodać `updateRadarChart()` wewnątrz renderComparator
+
+        function updateRadarChart(selectedCars) {
+            const ctx = document.getElementById('comparisonRadarChart');
+            const container = document.getElementById('radar-container');
+            
+            if (selectedCars.length < 2) {
+                container.classList.add('hidden');
+                return;
+            }
+            container.classList.remove('hidden');
+
+            // Niszczymy stary wykres jeśli istnieje
+            if (radarChartInstance) radarChartInstance.destroy();
+
+            const datasets = selectedCars.map((car, i) => {
+                // Normalizacja danych (żeby wykres był ładny, wartości 0-100)
+                // To jest uproszczenie na potrzeby projektu
+                const colors = ['rgba(239, 68, 68, 0.2)', 'rgba(59, 130, 246, 0.2)', 'rgba(34, 197, 94, 0.2)'];
+                const borders = ['#ef4444', '#3b82f6', '#22c55e'];
+                
+                return {
+                    label: car.model,
+                    data: [
+                        car.power / 8, // Skalowanie mocy
+                        car.accel * 20, // Skalowanie przyspieszenia (odwrotnie by było lepiej) - tu uproszczone
+                        car.topSpeed / 3.5,
+                        car.torque / 9
+                    ],
+                    backgroundColor: colors[i],
+                    borderColor: borders[i],
+                    borderWidth: 2
+                };
+            });
+
+            radarChartInstance = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['Moc', 'Przyspieszenie', 'Prędkość Max', 'Moment Obr.'],
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        r: {
+                            angleLines: { color: 'rgba(128, 128, 128, 0.2)' },
+                            grid: { color: 'rgba(128, 128, 128, 0.1)' },
+                            pointLabels: {
+                                color: document.documentElement.classList.contains('dark') ? 'white' : 'black'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- LOGIKA PORÓWNYWARKI ---
+        function toggleCompare(id) {
+            const index = compareList.indexOf(id);
+            const btn = document.getElementById(`btn-${id}`);
+
+            if (index > -1) {
+                // Usuń
+                compareList.splice(index, 1);
+                btn.innerText = "Dodaj do porównania";
+                btn.classList.remove("bg-green-600");
+            } else {
+                // Dodaj
+                if (compareList.length >= 3) {
+                    alert("Możesz porównać maksymalnie 3 auta!");
+                    return;
+                }
+                compareList.push(id);
+                btn.innerText = "W porównaniu ✓";
+                btn.classList.add("bg-green-600");
+            }
+            renderComparator();
+        }
+
+        function clearComparison() {
+            compareList = [];
+            renderCars(); // Resetuje przyciski
+            renderComparator();
+        }
+
+        function renderComparator() {
+            const container = document.getElementById('comparator-container');
+            const placeholder = document.getElementById('comparator-placeholder');
+            const tbody = document.getElementById('comparator-body');
+            
+            if (compareList.length === 0) {
+                container.classList.add('hidden');
+                placeholder.classList.remove('hidden');
+                return;
+            }
+
+            container.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+            tbody.innerHTML = '';
+
+            const selectedCars = carsData.filter(c => compareList.includes(c.id));
+            
+            // Ustaw nagłówki
+            selectedCars.forEach((car, index) => {
+                const th = document.getElementById(`th-car-${index}`);
+                th.innerText = car.model;
+                th.classList.remove('hidden');
+            });
+            // Ukryj puste kolumny
+            for(let i = selectedCars.length; i < 3; i++) {
+                document.getElementById(`th-car-${i}`).classList.add('hidden');
+            }
+
+            // Definicja parametrów do wyświetlenia
+            // isLowerBetter: true dla przyspieszenia (mniej sekund = lepiej)
+            const params = [
+                { label: "Moc (KM)", key: "power", isLowerBetter: false },
+                { label: "Moment (Nm)", key: "torque", isLowerBetter: false },
+                { label: "0-100 km/h (s)", key: "accel", isLowerBetter: true },
+                { label: "V-max (km/h)", key: "topSpeed", isLowerBetter: false }
+            ];
+
+            params.forEach(param => {
+                const tr = document.createElement('tr');
+                tr.className = "border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800";
+                
+                // Komórka nazwy parametru
+                let rowHtml = `<td class="py-3 px-6 font-medium">${param.label}</td>`;
+
+                // Obliczanie min/max dla kolorowania
+                const values = selectedCars.map(c => c[param.key]);
+                const bestVal = param.isLowerBetter ? Math.min(...values) : Math.max(...values);
+                const worstVal = param.isLowerBetter ? Math.max(...values) : Math.min(...values);
+
+                selectedCars.forEach(car => {
+                    const val = car[param.key];
+                    let styleClass = "";
+
+                    // Logika kolorowania (tylko jeśli mamy więcej niż 1 auto)
+                    if (selectedCars.length > 1) {
+                        if (val === bestVal) styleClass = "highlight-green";
+                        else if (val === worstVal) styleClass = "highlight-red";
+                    }
+
+                    rowHtml += `<td class="py-3 px-6 text-center"><span class="px-2 py-1 ${styleClass}">${val}</span></td>`;
+                });
+
+                tr.innerHTML = rowHtml;
+                tbody.appendChild(tr);
+            });
+            updateRadarChart(selectedCars);
+        }
+
+        // --- WYKRESY (Chart.js) ---
+        function initCharts() {
+            // Kolory dla wykresów
+            const labels = carsData.map(c => c.model);
+            const colors = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#3b82f6', '#8b5cf6'];
+
+            // Wykres przyspieszenia
+            new Chart(document.getElementById('accelChart'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Czas 0-100 km/h (s)',
+                        data: carsData.map(c => c.accel),
+                        backgroundColor: colors,
+                        borderRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+
+            // Wykres mocy
+            new Chart(document.getElementById('powerChart'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Moc (KM)',
+                        data: carsData.map(c => c.power),
+                        backgroundColor: colors,
+                        borderRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        // --- TRYB CIEMNY ---
+        function toggleTheme() {
+            const html = document.documentElement;
+            const icon = document.getElementById('theme-icon');
+            
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                html.classList.add('light');
+                icon.classList.replace('fa-sun', 'fa-moon');
+                localStorage.theme = 'light';
+            } else {
+                html.classList.add('dark');
+                html.classList.remove('light');
+                icon.classList.replace('fa-moon', 'fa-sun');
+                localStorage.theme = 'dark';
+            }
+        }
+
+        function checkTheme() {
+            // Sprawdza zapisane ustawienia lub preferencje systemowe
+            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                document.getElementById('theme-icon').classList.replace('fa-moon', 'fa-sun');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        }
+    </script>
+
+    <div id="carModal" class="fixed inset-0 z-50 hidden bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl relative">
+            <button onclick="closeModal()" class="absolute top-4 right-4 bg-gray-200 dark:bg-gray-700 p-2 rounded-full hover:bg-red-500 hover:text-white transition">
+                <i class="fa-solid fa-times"></i>
+            </button>
+            
+            <div id="modalContent" class="p-0">
+                </div>
+        </div>
+    </div>
+
+</body>
+</html>

@@ -65,6 +65,22 @@
         <p class="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-8">
             Profesjonalne narzędzie do analizy i porównywania osiągów najnowszych supersamochodów. Dane techniczne, wykresy i obiektywna ocena.
         </p>
+
+        <div id="weather-widget" class="hidden max-w-md mx-auto mb-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur rounded-lg p-4 shadow-lg border-l-4 border-gray-400 transition-all">
+            <div class="flex items-center justify-center space-x-4">
+                <div id="weather-icon" class="text-3xl text-gray-500">
+                    <i class="fa-solid fa-spinner fa-spin"></i>
+                </div>
+                <div class="text-left">
+                    <p id="weather-temp" class="text-2xl font-bold font-mono">--°C</p>
+                    <p id="weather-desc" class="text-sm font-semibold uppercase tracking-wide">Pobieranie lokalizacji...</p>
+                </div>
+            </div>
+            <div id="weather-alert" class="mt-2 text-xs text-gray-600 dark:text-gray-400 font-medium">
+                Sprawdzamy warunki do jazdy...
+            </div>
+        </div>
+
         <a href="#garage" class="bg-brand text-white px-8 py-3 rounded-lg font-bold shadow-lg hover:bg-red-600 transition">
             Przeglądaj Modele
         </a>
@@ -242,6 +258,7 @@
             renderCars();
             initCharts();
             checkTheme();
+            initWeather();
         });
 
         // --- FILTROWANIE I SORTOWANIE (Nowa wersja renderCars) ---
@@ -622,6 +639,88 @@
             } else {
                 document.documentElement.classList.remove('dark');
             }
+        }
+
+        // --- LOGIKA POGODOWA (Open-Meteo API + Geolocation) ---
+        function initWeather() {
+            const widget = document.getElementById('weather-widget');
+            const tempEl = document.getElementById('weather-temp');
+            const descEl = document.getElementById('weather-desc');
+            const iconEl = document.getElementById('weather-icon');
+            const alertEl = document.getElementById('weather-alert');
+
+            // Pokazujemy widget
+            widget.classList.remove('hidden');
+
+            // 1. Sprawdzamy czy przeglądarka obsługuje geolokalizację
+            if (!navigator.geolocation) {
+                descEl.innerText = "Brak GPS";
+                return;
+            }
+
+            // 2. Pobieramy pozycję
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+
+                try {
+                    // 3. Zapytanie do API Open-Meteo
+                    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`;
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    const weather = data.current_weather;
+
+                    // 4. Aktualizacja UI
+                    tempEl.innerText = `${weather.temperature}°C`;
+                    
+                    // Interpretacja kodów pogodowych (WMO codes)
+                    const code = weather.weathercode;
+                    let condition = "";
+                    let iconClass = "";
+                    let safetyMsg = "";
+                    let borderColor = "";
+
+                    if (code <= 1) { // 0, 1: Czyste niebo
+                        condition = "Słonecznie";
+                        iconClass = "fa-solid fa-sun text-yellow-500";
+                        safetyMsg = "✅ Warunki idealne. Przyczepność 100%.";
+                        borderColor = "border-green-500";
+                    } else if (code <= 3) { // 2, 3: Zachmurzenie
+                        condition = "Pochmurno";
+                        iconClass = "fa-solid fa-cloud text-gray-400";
+                        safetyMsg = "⚠️ Dobra widoczność, ale opony muszą być rozgrzane.";
+                        borderColor = "border-yellow-500";
+                    } else if (code <= 67 || code >= 80) { // Deszcz
+                        condition = "Deszcz";
+                        iconClass = "fa-solid fa-cloud-rain text-blue-400";
+                        safetyMsg = "⛔ ŚLISKO! Uważaj na auta RWD (tylny napęd).";
+                        borderColor = "border-red-500";
+                    } else if (code >= 71) { // Śnieg
+                        condition = "Śnieg";
+                        iconClass = "fa-solid fa-snowflake text-cyan-300";
+                        safetyMsg = "❄️ Zostań w garażu. Tylko dla aut SUV.";
+                        borderColor = "border-blue-500";
+                    }
+
+                    descEl.innerText = condition;
+                    iconEl.innerHTML = `<i class="${iconClass}"></i>`;
+                    alertEl.innerText = safetyMsg;
+                    
+                    // Kolorowanie ramki
+                    widget.classList.remove('border-gray-400');
+                    widget.classList.add(borderColor);
+
+                } catch (error) {
+                    console.error("Błąd pogody:", error);
+                    descEl.innerText = "Błąd API";
+                }
+
+            }, (error) => {
+                // Obsługa odmowy dostępu do GPS
+                descEl.innerText = "Lokalizacja zablokowana";
+                iconEl.innerHTML = '<i class="fa-solid fa-location-slash text-red-400"></i>';
+                alertEl.innerText = "Włącz GPS, aby sprawdzić warunki na torze.";
+            });
         }
     </script>
 
